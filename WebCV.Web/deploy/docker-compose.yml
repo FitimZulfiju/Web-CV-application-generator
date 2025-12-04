@@ -1,0 +1,160 @@
+networks:
+  webcvapp_default:
+    name: ${COMPOSE_NETWORK:-deploy_webcvapp_default}
+    external: ${COMPOSE_NETWORK_EXTERNAL:-false}
+volumes:
+  webcv_sql_data: null
+services:
+  app:
+    image: ${DOCKER_REPOSITORY}:${IMAGE_TAG:-latest}
+    container_name: ${APP_CONTAINER_NAME}
+    restart: unless-stopped
+    user: 0:0
+    ports:
+    - ${APP_PORT}:${APP_PORT}
+    deploy:
+      resources:
+        limits:
+          memory: ${APP_MEMORY_LIMIT:-2G}
+          cpus: ${APP_CPU_LIMIT:-0.5}
+        reservations:
+          memory: ${APP_MEMORY_RESERVE:-512M}
+          cpus: ${APP_CPU_RESERVE:-0.25}
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ${APP_LOGS_DIR}:/app/logs
+    - ${APP_DATA_DIR}:/app/data
+    - ${APP_BACKUPS_DIR}:/app/Backups
+    - ${APP_KEYS_DIR}:/app/dataprotection-keys
+    - ${APP_PRODUCTIMAGES_DIR}:/app/wwwroot/uploads
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:${APP_PORT}${HEALTH_PATH}
+      interval: ${HEALTH_INTERVAL_SECONDS:-30}s
+      timeout: ${HEALTH_RETRY_INTERVAL_SECONDS:-10}s
+      retries: ${HEALTH_RETRIES:-3}
+      start_period: ${HEALTH_START_PERIOD_SECONDS:-60}s
+    depends_on:
+    - db
+    environment:
+    - DOTNET_RUNNING_IN_CONTAINER=true
+    - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+    - ASPNETCORE_URLS=http://+:${APP_PORT}
+    - ASPNETCORE_HTTP_PORTS=${APP_PORT}
+    - CLOUDFLARE_URL=${CLOUDFLARE_URL:-https://${DOMAIN}}
+    - Docker__Repository=${DOCKER_REPOSITORY}
+    - Docker__ConnectionTimeout__Production=${DOCKER_CONN_TIMEOUT_SEC:-60}
+    - ASPNETCORE_Kestrel__KeepAliveTimeout=${KESTREL_KEEPALIVE_SEC:-300}
+    - ASPNETCORE_Kestrel__RequestHeadersTimeout=${KESTREL_REQHDR_TIMEOUT_SEC:-300}
+    - ASPNETCORE_Kestrel__MaxRequestLineSize=${KESTREL_MAX_REQLINE_BYTES:-16384}
+    - ASPNETCORE_Kestrel__MaxRequestBufferSize=${KESTREL_MAX_REQBUF_BYTES:-1048576}
+    - Cloudflare__ApiToken=${CF_API_TOKEN}
+    - Cloudflare__ZoneId=${CF_ZONE_ID}
+    - ConnectionStrings__DefaultConnection=Server=${DB_SERVER};Database=${DB_NAME};User
+      Id=${DB_USER};Password=${DB_PASSWORD};TrustServerCertificate=True;
+    networks:
+    - webcvapp_default
+    labels:
+    - com.centurylinklabs.watchtower.enable=true
+    - com.centurylinklabs.watchtower.schedule=0 */5 * * * *
+    - com.centurylinklabs.watchtower.stop-timeout=30s
+    command: "sh -c \"\n  # Create required directories\n  mkdir -p /app/data /app/Backups\
+      \ /app/dataprotection-keys /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ /app/wwwroot/images &&\n\n  # Set proper permissions for backup directory\
+      \ to allow DB container access\n  chmod 777 /app/Backups || true &&\n\n  # Copy\
+      \ static images from the Docker image backup to persistent storage (only if\
+      \ not already copied)\n  if [ ! -f /app/wwwroot/images/.static_images_initialized\
+      \ ]; then\n    echo 'Initializing static images in persistent storage...'\n\
+      \    if [ -d '/app/wwwroot/images_static_backup' ]; then\n      # Copy all static\
+      \ images from backup to the mounted volume\n      cp -r /app/wwwroot/images_static_backup/*\
+      \ /app/wwwroot/images/ || echo 'No static images found in backup'\n      echo\
+      \ 'Static images copied from Docker image backup'\n    else\n      echo 'No\
+      \ static image backup found - this is normal for user-only image directories'\n\
+      \    fi\n    # Create marker file to prevent copying on subsequent restarts\n\
+      \    touch /app/wwwroot/images/.static_images_initialized\n    echo 'Static\
+      \ images initialization completed'\n  else\n    echo 'Static images already\
+      \ initialized, preserving existing content'\n  fi &&\n\n  # Set proper ownership\
+      \ and permissions (except for backups which needs 777)\n  chown -R $(id -u):$(id\
+      \ -g) /app/data /app/dataprotection-keys /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ /app/wwwroot/images || true &&\n  chmod 700 /app/data /app/dataprotection-keys\
+      \ || true &&\n  chmod 755 /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ /app/wwwroot/images || true &&\n\n  # Ensure backups directory has proper\
+      \ permissions for SQL Server access\n  chmod 777 /app/Backups || true &&\n\n\
+      \  echo 'Starting WebCV application...' &&\n  dotnet WebCV.dll\"\n"
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: webcv-watchtower
+    restart: unless-stopped
+    environment:
+    - WATCHTOWER_CLEANUP=true
+    - WATCHTOWER_INCLUDE_RESTARTING=true
+    - WATCHTOWER_INCLUDE_STOPPED=false
+    - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
+    - WATCHTOWER_LABEL_ENABLE=true
+    - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
+    - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+    - WATCHTOWER_DEBUG=true
+    - DOCKER_API_VERSION=1.44
+    - WATCHTOWER_SCOPE=webcv
+    - WATCHTOWER_TRACE=${WATCHTOWER_TRACE:-false}
+    - WATCHTOWER_HTTP_API_UPDATE=true
+    - WATCHTOWER_HTTP_API_METRICS=true
+    - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_API_TOKEN:-securetoken123}
+    - WATCHTOWER_HTTP_API=true
+    - WATCHTOWER_ROLLING_RESTART=true
+    - REPO_USER=${DOCKER_REGISTRY_USER:-}
+    - REPO_PASS=${DOCKER_REGISTRY_TOKEN:-}
+    - TZ=${TZ:-UTC}
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+    - webcvapp_default
+    ports:
+    - ${WATCHTOWER_HTTP_PORT:-8001}:8080
+    labels:
+    - com.centurylinklabs.watchtower.scope=webcv
+    - com.centurylinklabs.watchtower.enable=false
+    depends_on:
+    - app
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: webcv-cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared-local/webcv-config.yml --credentials-file /etc/cloudflared/${TUNNEL_ID}.json
+      run
+    environment:
+    - TUNNEL_ID=${TUNNEL_ID}
+    volumes:
+    - ${CLOUDFLARED_DIR}:/etc/cloudflared:ro
+    - ./cloudflared-mount:/etc/cloudflared-local:ro
+    networks:
+    - webcvapp_default
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ${DB_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+    - ACCEPT_EULA=Y
+    - MSSQL_SA_PASSWORD=${DB_PASSWORD}
+    - MSSQL_PID=Express
+    - MSSQL_MEMORY_LIMIT_MB=${DB_MEMORY_LIMIT_MB}
+    deploy:
+      resources:
+        limits:
+          memory: ${DB_MEMORY_LIMIT:-2.5G}
+          cpus: ${DB_CPU_LIMIT:-1.0}
+        reservations:
+          memory: ${DB_MEMORY_RESERVE:-1G}
+          cpus: ${DB_CPU_RESERVE:-0.5}
+    ports:
+    - ${DB_PORT}:1433
+    volumes:
+    - webcv_sql_data:/var/opt/mssql
+    - ${APP_BACKUPS_DIR}:/app/Backups
+    networks:
+      webcvapp_default:
+        aliases:
+        - ${DB_SERVER}
