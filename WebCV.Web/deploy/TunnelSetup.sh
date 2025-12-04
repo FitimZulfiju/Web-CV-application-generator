@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WebCV Cloudflared Tunnel Setup Script
+# WebCv Cloudflared Tunnel Setup Script
 
 set -o nounset
 set -o errexit
@@ -442,7 +442,7 @@ if [ -d "$CONFIG_PATH" ]; then
 fi
 
 log "INFO" "Writing WebCV tunnel configuration to $CONFIG_PATH"
-log "INFO" "Using Docker Compose service names (web, api, grafana) for webcv_network"
+log "INFO" "Using Docker Compose service names (webCv) for webcv_network"
 CRED_BASENAME=$(basename "$CRED_PATH")
 cat << EOF > "$CONFIG_PATH"
 tunnel: $TUNNEL_ID
@@ -450,8 +450,8 @@ credentials-file: /home/nonroot/.cloudflared/$CRED_BASENAME
 
 
 ingress:
-  - hostname: $FULL_SUBDOMAIN
-    service: http://webcv-app:80
+  - hostname: 
+    service: http://webcv-app:8090
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -486,7 +486,7 @@ if $IS_ROOT || $HAS_SUDO; then
   log "INFO" "Configuring systemd service for WebCV cloudflared tunnel (requires sudo/root)"
   run_cmd "tee /etc/systemd/system/cloudflared.service > /dev/null <<EOF
 [Unit]
-Description=Cloudflare Tunnel for WebCV
+Description=Cloudflare Tunnel for WebCv
 After=network.target
 
 [Service]
@@ -511,8 +511,7 @@ fi
 log "SUCCESS" "WebCV Cloudflare Tunnel setup complete!"
 log "INFO" "Tunnel configuration:"
 log "INFO" "  - $DOMAIN -> web:8080 (WebCV Blazor Server Web App)"
-log "INFO" "  - $API_FULL_SUBDOMAIN -> api:8080 (WebCV API + WASM Client)"
-log "INFO" "  - $FULL_SUBDOMAIN -> grafana:3000 (Grafana Dashboard)"
+log "INFO" "  - $API_FULL_SUBDOMAIN -> api:8080 (WebCV)"
 log "INFO" "Check status (if systemd enabled): sudo systemctl status cloudflared"
 log "INFO" "View logs: journalctl -u cloudflared -f"
 log "INFO" "IMPORTANT: cloudflared container MUST be on the 'webcv_network' to reach these services!"

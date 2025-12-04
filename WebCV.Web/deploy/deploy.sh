@@ -185,10 +185,12 @@ set_permissions() {
     sudo mkdir -p "$BASE_DIR/data"
     sudo mkdir -p "$BASE_DIR/backups"
     sudo mkdir -p "$BASE_DIR/dataprotection-keys"
-    sudo mkdir -p "$BASE_DIR/wwwroot/uploads"
+    sudo mkdir -p "$BASE_DIR/wwwroot/ProductImages"
+    sudo mkdir -p "$BASE_DIR/wwwroot/UsersImages"
+    sudo mkdir -p "$BASE_DIR/wwwroot/images"
 
     # Set ownership using environment variable
-    log "INFO" "Setting WebCV application directory ownership to $DEPLOY_USER:$DEPLOY_USER..."
+    log "INFO" "Setting WebCv application directory ownership to $DEPLOY_USER:$DEPLOY_USER..."
     sudo chown -R "$DEPLOY_USER:$DEPLOY_USER" "$BASE_DIR"
 
     # Set proper permissions for backups directory to allow both containers access
@@ -203,17 +205,19 @@ set_permissions() {
     chmod 755 "$BASE_DIR/data"
     chmod 700 "$BASE_DIR/dataprotection-keys"  # More restrictive for security keys
     chmod 755 "$BASE_DIR/wwwroot"
-    chmod 755 "$BASE_DIR/wwwroot/uploads"
+    chmod 755 "$BASE_DIR/wwwroot/ProductImages"
+    chmod 755 "$BASE_DIR/wwwroot/UsersImages"
+    chmod 755 "$BASE_DIR/wwwroot/images"
 
     log "INFO" "Setting observability stack directory permissions..."
 
 
-    log "INFO" "✅ All directories created with proper permissions!"
-    log "INFO" "📁 WebCV app directories: $BASE_DIR"
-    log "INFO" "👤 Owner: $DEPLOY_USER:$DEPLOY_USER"
-    log "INFO" "🔑 DataProtection keys: $BASE_DIR/dataprotection-keys (700)"
-    log "INFO" "💾 Backups directory: $BASE_DIR/backups (777 - accessible by both app and DB containers)"
-    log "INFO" "📸 Image directories ready for uploads"
+    log "INFO" "âœ… All directories created with proper permissions!"
+    log "INFO" "ðŸ“ WebCV app directories: $BASE_DIR"
+    log "INFO" "ðŸ‘¤ Owner: $DEPLOY_USER:$DEPLOY_USER"
+    log "INFO" "ðŸ”‘ DataProtection keys: $BASE_DIR/dataprotection-keys (700)"
+    log "INFO" "ðŸ’¾ Backups directory: $BASE_DIR/backups (777 - accessible by both app and DB containers)"
+    log "INFO" "ðŸ“¸ Image directories ready for uploads"
 }
 
 fix_backup_permissions() {
@@ -226,11 +230,11 @@ fix_backup_permissions() {
     if [ -d "$BACKUPS_HOST_DIR" ]; then
         sudo chmod 777 "$BACKUPS_HOST_DIR"
         sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$BACKUPS_HOST_DIR"
-        log "INFO" "✅ Backup directory permissions fixed: $BACKUPS_HOST_DIR (777) owned by $DEPLOY_USER:$DEPLOY_USER"
+        log "INFO" "âœ… Backup directory permissions fixed: $BACKUPS_HOST_DIR (777) owned by $DEPLOY_USER:$DEPLOY_USER"
 
         # Also fix any existing backup files
         find "$BACKUPS_HOST_DIR" -name "*.bak" -exec sudo chmod 666 {} \; 2>/dev/null || true
-        log "INFO" "✅ Existing backup files permissions updated"
+        log "INFO" "âœ… Existing backup files permissions updated"
     else
         log "WARN" "Backup directory not found: $BACKUPS_HOST_DIR"
     fi
@@ -293,7 +297,7 @@ initialize_static_images() {
         # Cleanup
         rm -rf "$TEMP_DIR"
 
-        log "INFO" "✅ Static images copied successfully!"
+        log "INFO" "âœ… Static images copied successfully!"
 
     else
         log "INFO" "No static images backup found in container, creating initialization marker"

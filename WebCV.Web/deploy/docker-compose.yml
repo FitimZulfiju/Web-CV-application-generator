@@ -26,17 +26,18 @@ services:
     - ${APP_DATA_DIR}:/app/data
     - ${APP_BACKUPS_DIR}:/app/Backups
     - ${APP_KEYS_DIR}:/app/dataprotection-keys
-    - ${APP_PRODUCTIMAGES_DIR}:/app/wwwroot/uploads
-    healthcheck:
-      test:
-      - CMD
-      - curl
-      - -f
-      - http://localhost:${APP_PORT}${HEALTH_PATH}
-      interval: ${HEALTH_INTERVAL_SECONDS:-30}s
-      timeout: ${HEALTH_RETRY_INTERVAL_SECONDS:-10}s
-      retries: ${HEALTH_RETRIES:-3}
-      start_period: ${HEALTH_START_PERIOD_SECONDS:-60}s
+    - ${APP_USERIMAGES_DIR}:/app/wwwroot/uploads
+    - ${APP_STATIC_IMAGES_DIR}:/app/wwwroot/images
+#    healthcheck:
+#      test:
+#      - CMD
+#      - curl
+#      - -f
+#      - http://localhost:${APP_PORT}${HEALTH_PATH}
+#      interval: ${HEALTH_INTERVAL_SECONDS:-30}s
+#      timeout: ${HEALTH_RETRY_INTERVAL_SECONDS:-10}s
+#      retries: ${HEALTH_RETRIES:-3}
+#      start_period: ${HEALTH_START_PERIOD_SECONDS:-60}s
     depends_on:
     - db
     environment:
@@ -62,7 +63,7 @@ services:
     - com.centurylinklabs.watchtower.schedule=0 */5 * * * *
     - com.centurylinklabs.watchtower.stop-timeout=30s
     command: "sh -c \"\n  # Create required directories\n  mkdir -p /app/data /app/Backups\
-      \ /app/dataprotection-keys /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ /app/dataprotection-keys /app/wwwroot/UsersImages\
       \ /app/wwwroot/images &&\n\n  # Set proper permissions for backup directory\
       \ to allow DB container access\n  chmod 777 /app/Backups || true &&\n\n  # Copy\
       \ static images from the Docker image backup to persistent storage (only if\
@@ -78,12 +79,12 @@ services:
       \ images initialization completed'\n  else\n    echo 'Static images already\
       \ initialized, preserving existing content'\n  fi &&\n\n  # Set proper ownership\
       \ and permissions (except for backups which needs 777)\n  chown -R $(id -u):$(id\
-      \ -g) /app/data /app/dataprotection-keys /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ -g) /app/data /app/dataprotection-keys /app/wwwroot/UsersImages\
       \ /app/wwwroot/images || true &&\n  chmod 700 /app/data /app/dataprotection-keys\
-      \ || true &&\n  chmod 755 /app/wwwroot/ProductImages /app/wwwroot/UsersImages\
+      \ || true &&\n  chmod 755 /app/wwwroot/UsersImages\
       \ /app/wwwroot/images || true &&\n\n  # Ensure backups directory has proper\
       \ permissions for SQL Server access\n  chmod 777 /app/Backups || true &&\n\n\
-      \  echo 'Starting WebCV application...' &&\n  dotnet WebCV.dll\"\n"
+      \  echo 'Starting MF application...' &&\n  dotnet WebCV.Web.dll\"\n"
   watchtower:
     image: containrrr/watchtower:latest
     container_name: webcv-watchtower
@@ -98,7 +99,7 @@ services:
     - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
     - WATCHTOWER_DEBUG=true
     - DOCKER_API_VERSION=1.44
-    - WATCHTOWER_SCOPE=webcv
+    - WATCHTOWER_SCOPE=mf7
     - WATCHTOWER_TRACE=${WATCHTOWER_TRACE:-false}
     - WATCHTOWER_HTTP_API_UPDATE=true
     - WATCHTOWER_HTTP_API_METRICS=true
