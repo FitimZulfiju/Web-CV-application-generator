@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
       args:
         BUILD_VERSION: ${BUILD_VERSION:-1.0.0-dev}
-    image: ${DOCKER_REPOSITORY}:${IMAGE_TAG:-latest}
+    image: ${DOCKER_REPOSITORY}:${BUILD_VERSION:-dev}
     container_name: ${APP_CONTAINER_NAME}
     restart: unless-stopped
     user: 0:0
