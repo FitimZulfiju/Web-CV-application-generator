@@ -165,7 +165,7 @@ ensure_dns_record() {
     }
 
     # Create/update DNS records for all domains
-    check_and_update_record "$DOMAIN"
+    # check_and_update_record "$DOMAIN"  <-- Removed to prevent hijacking the main domain (mf7)
     check_and_update_record "$FULL_SUBDOMAIN"
 }
 
@@ -309,24 +309,44 @@ initialize_static_images() {
 start_services() {
     log "INFO" "Cleaning up previous containers and networks..."
 
-    # Stop and remove all containers, including those not in docker-compose
-    log "INFO" "Stopping all running containers..."
-    docker stop $(docker ps -aq) 2>/dev/null || true
-    docker rm $(docker ps -aq) 2>/dev/null || true
-
-    # Remove all unused networks
-    log "INFO" "Cleaning up networks..."
-    docker network prune -f
-
-    # Remove any dangling containers
-    log "INFO" "Removing dangling containers..."
-    docker container prune -f
+    # Stop and remove only the containers defined in docker-compose
+    log "INFO" "Stopping project containers..."
+    docker-compose down --remove-orphans || true
+    
+    # Remove unused networks (scoped to project usually handled by down, but pruning is fine if not -f)
+    # We will skip aggressive network pruning to avoid affecting other projects
+    # docker network prune -f 
+    
+    # Remove any dangling containers - keeping this but it might affect others if they have stopped containers. 
+    # Safest is to rely on docker-compose down.
+    # docker container prune -f
 
     # Check if ports are in use and kill processes if needed
     log "INFO" "Checking for processes using required ports..."
-    for port in ${PORT_CLEANUP_LIST}; do
-        if lsof -i :$port >/dev/null 2>&1; then
-            log "WARN" "Port $port is in use. Attempting to free it..."
+    # Ensure all sensitive ports are checked, including DB and internal services
+    ALL_PORTS="${PORT_CLEANUP_LIST} ${DB_PORT:-14337} ${WATCHTOWER_HTTP_PORT:-8001} ${APP_PORT:-8090}"
+    
+    for port in ${ALL_PORTS}; do
+        # Check if port is used by a Docker container
+        CONFLICT_CONTAINER=$(docker ps --format "{{.Names}}" --filter "publish=$port")
+        
+        if [ -n "$CONFLICT_CONTAINER" ]; then
+            log "WARN" "Port $port is currently held by container: $CONFLICT_CONTAINER"
+            
+            # Check if likely belongs to this project (heuristic: contains 'webcv' or matches known names)
+            if [[ "$CONFLICT_CONTAINER" == *"webcv"* ]] || \
+               [[ "$CONFLICT_CONTAINER" == *"${APP_NAME:-webcv}"* ]] || \
+               [[ "$CONFLICT_CONTAINER" == *"${DB_CONTAINER_NAME:-sqlserver}"* ]]; then
+                
+                log "INFO" "Container '$CONFLICT_CONTAINER' appears to be a stale project container. Removing..."
+                docker rm -f "$CONFLICT_CONTAINER"
+            else
+                log "ERROR" "Port $port is occupied by unrelated container '$CONFLICT_CONTAINER'. Deployment ABORTED to protect other services. Please resolve the port conflict manually."
+                exit 1
+            fi
+        elif lsof -i :$port >/dev/null 2>&1; then
+            # Port used by non-docker process (likely a zombie process or system service)
+            log "WARN" "Port $port is in use by a process on the host (not a container). Attempting to free..."
             sudo fuser -k $port/tcp 2>/dev/null || true
             sleep 2
         fi
