@@ -61,7 +61,6 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - com.centurylinklabs.watchtower.scope=webcv
-      - com.centurylinklabs.watchtower.schedule=0 */5 * * * *
       - com.centurylinklabs.watchtower.stop-timeout=30s
     command:
       "sh -c \"\n  # Create required directories\n  mkdir -p /app/data /app/Backups\
@@ -87,41 +86,7 @@ services:
       \ /app/wwwroot/images || true &&\n\n  # Ensure backups directory has proper\
       \ permissions for SQL Server access\n  chmod 777 /app/Backups || true &&\n\n\
       \  echo 'Starting MF application...' &&\n  dotnet WebCV.Web.dll\"\n"
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: webcv-watchtower
-    restart: unless-stopped
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_INCLUDE_STOPPED=false
-      - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
-      - WATCHTOWER_LABEL_ENABLE=true
-      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
-      - WATCHTOWER_DEBUG=true
-      - DOCKER_API_VERSION=1.44
-      - WATCHTOWER_SCOPE=webcv
-      - WATCHTOWER_TRACE=${WATCHTOWER_TRACE:-false}
-      - WATCHTOWER_HTTP_API_UPDATE=true
-      - WATCHTOWER_HTTP_API_METRICS=true
-      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_API_TOKEN:-securetoken123}
-      - WATCHTOWER_HTTP_API=true
-      - WATCHTOWER_ROLLING_RESTART=true
-      - REPO_USER=${DOCKER_REGISTRY_USER:-}
-      - REPO_PASS=${DOCKER_REGISTRY_TOKEN:-}
-      - TZ=${TZ:-UTC}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - webcvapp_default
-    ports:
-      - ${WATCHTOWER_HTTP_PORT:-8001}:8080
-    labels:
-      - com.centurylinklabs.watchtower.scope=webcv
-      - com.centurylinklabs.watchtower.enable=false
-    depends_on:
-      - app
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: webcv-cloudflared

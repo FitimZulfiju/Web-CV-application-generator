@@ -311,6 +311,10 @@ start_services() {
 
     # Stop and remove only the containers defined in docker-compose
     log "INFO" "Stopping project containers..."
+    
+    # Explicitly remove containers by name to avoid conflicts if compose down fails to track them
+    docker rm -f ${APP_CONTAINER_NAME:-webcv-app} ${DB_CONTAINER_NAME:-webcv-sqlserver} webcv-cloudflared webcv-watchtower >/dev/null 2>&1 || true
+
     docker-compose down --remove-orphans || true
     
     # Remove unused networks (scoped to project usually handled by down, but pruning is fine if not -f)
@@ -357,6 +361,19 @@ start_services() {
 
     log "INFO" "Starting containers..."
     docker-compose up -d --remove-orphans
+
+    log "INFO" "Starting Watchtower separately (to avoid compose conflicts)..."
+    docker rm -f webcv-watchtower >/dev/null 2>&1 || true
+    docker run -d \
+      --name webcv-watchtower \
+      --restart unless-stopped \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -e WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300} \
+      -e WATCHTOWER_SCOPE=webcv \
+      -e WATCHTOWER_CLEANUP=true \
+      -e WATCHTOWER_INCLUDE_RESTARTING=true \
+      -e DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44} \
+      containrrr/watchtower:latest
 
     # Fix backup permissions and initialize static images after containers are up
     fix_backup_permissions
