@@ -100,6 +100,9 @@ services:
       - 11434:11434
     volumes:
       - ollama_data:/root/.ollama
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     networks:
       - webcvapp_default
 
