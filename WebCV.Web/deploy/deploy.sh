@@ -306,82 +306,7 @@ initialize_static_images() {
     fi
 }
 
-setup_gpu_if_available() {
-    log "INFO" "Checking for NVIDIA GPU availability..."
-    
-    # Check if nvidia-smi is available and GPU is detected
-    if command_exists nvidia-smi && nvidia-smi &>/dev/null; then
-        log "INFO" "NVIDIA GPU detected!"
-        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-        
-        # Check if NVIDIA Container Toolkit is already installed
-        if command_exists nvidia-ctk; then
-            log "INFO" "NVIDIA Container Toolkit already installed ($(nvidia-ctk --version))"
-        else
-            log "INFO" "NVIDIA Container Toolkit not found. Running GPU setup..."
-            
-            # Check if setup script exists
-            if [ -f "setup-gpu.sh" ]; then
-                chmod +x setup-gpu.sh
-                ./setup-gpu.sh || {
-                    log "WARN" "GPU setup failed. Continuing without GPU acceleration."
-                    return 1
-                }
-                log "INFO" "✅ GPU setup completed successfully!"
-            else
-                log "WARN" "setup-gpu.sh not found. Skipping GPU setup."
-                log "WARN" "To enable GPU: Create setup-gpu.sh or manually install NVIDIA Container Toolkit"
-            fi
-        fi
-    else
-        log "INFO" "No NVIDIA GPU detected. Skipping GPU setup."
-        log "INFO" "Ollama will use CPU for inference (slower performance)"
-    fi
-}
 
-init_ollama_models() {
-    log "INFO" "Initializing Ollama models..."
-    
-    # Check if GPU is available - only pull models if GPU is enabled
-    if ! command_exists nvidia-ctk || ! nvidia-smi &>/dev/null; then
-        log "WARN" "GPU not available - skipping model downloads"
-        log "WARN" "Local AI models are impractically slow on CPU and will not be downloaded"
-        log "WARN" "To enable local AI: Install NVIDIA GPU and run ./setup-gpu.sh"
-        return 0
-    fi
-    
-    log "INFO" "GPU detected - pulling AI models for GPU-accelerated inference..."
-    CONTAINER_NAME="webcv-ollama"
-
-    log "INFO" "Waiting for container $CONTAINER_NAME to be ready..."
-    for i in {1..30}; do
-        if docker ps | grep -q "$CONTAINER_NAME"; then
-            log "INFO" "Container $CONTAINER_NAME is running"
-            break
-        fi
-        if [ $i -eq 30 ]; then
-            log "WARN" "Container $CONTAINER_NAME not found after 30 seconds."
-            return
-        fi
-        sleep 1
-    done
-
-    # Wait for Ollama service to be responsive
-    log "INFO" "Waiting for Ollama API to be responsive..."
-    for i in {1..30}; do
-        if docker exec "$CONTAINER_NAME" curl -s http://localhost:11434/api/tags > /dev/null; then
-            break
-        fi
-        sleep 2
-    done
-
-    log "INFO" "Pulling required models (this may take a while)..."
-    docker exec "$CONTAINER_NAME" ollama pull mistral
-    docker exec "$CONTAINER_NAME" ollama pull llama3.1
-    docker exec "$CONTAINER_NAME" ollama pull phi3
-
-    log "INFO" "Ollama models initialized with GPU support."
-}
 
 start_services() {
     log "INFO" "Cleaning up previous containers and networks..."
@@ -455,7 +380,6 @@ start_services() {
     # Fix backup permissions and initialize static images after containers are up
     fix_backup_permissions
     initialize_static_images
-    init_ollama_models
 
     log "INFO" "Deployment complete. Visit https://$DOMAIN"
     log "INFO" "Deployment complete. Visit https://$FULL_SUBDOMAIN"
@@ -469,7 +393,6 @@ main() {
     ensure_docker_permissions
     set_permissions
     ensure_dns_record
-    setup_gpu_if_available  # Auto-detect and setup GPU if available
     start_services
 }
 

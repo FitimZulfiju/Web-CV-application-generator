@@ -61,7 +61,6 @@ services:
       - Cloudflare__ZoneId=${CF_ZONE_ID}
       - ConnectionStrings__DefaultConnection=Server=${DB_SERVER};Database=${DB_NAME};User
         Id=${DB_USER};Password=${DB_PASSWORD};TrustServerCertificate=True;
-      - ConnectionStrings__Ollama=http://webcv-ollama:11434/api/generate
     networks:
       - webcvapp_default
     labels:
@@ -91,27 +90,7 @@ services:
       \ || true &&\n  chmod 755 /app/wwwroot/UsersImages\
       \ /app/wwwroot/images || true &&\n\n  # Ensure backups directory has proper\
       \ permissions for SQL Server access\n  chmod 777 /app/Backups || true &&\n\n\
-      \  echo 'Starting MF application...' &&\n  dotnet WebCV.Web.dll\"\n"
-
-  # Ollama - Local AI Model Service with GPU Acceleration
-  # GPU Setup:
-  # 1. Ensure NVIDIA GPU is detected: nvidia-smi
-  # 2. Install NVIDIA Container Toolkit (run ./setup-gpu.sh)
-  # 3. Restart this container: docker compose up -d --force-recreate ollama
-  # The 'runtime: nvidia' and NVIDIA_VISIBLE_DEVICES enable GPU passthrough
-  ollama:
-    image: ollama/ollama:latest
-    container_name: webcv-ollama
-    restart: unless-stopped
-    ports:
-      - 11434:11434
-    volumes:
-      - ollama_data:/root/.ollama
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-    networks:
-      - webcvapp_default
+      \  echo 'Starting WebCV application...' &&\n  dotnet WebCV.Web.dll\"\n"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -156,4 +135,3 @@ services:
 
 volumes:
   webcv_sql_data:
-  ollama_data:
