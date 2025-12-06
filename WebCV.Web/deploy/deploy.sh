@@ -336,7 +336,7 @@ init_ollama_models() {
     docker exec "$CONTAINER_NAME" ollama pull mistral
     docker exec "$CONTAINER_NAME" ollama pull llama3.1
     docker exec "$CONTAINER_NAME" ollama pull phi3
-    docker exec "$CONTAINER_NAME" ollama pull gpt4all
+
     log "INFO" "Ollama models initialized."
 }
 
