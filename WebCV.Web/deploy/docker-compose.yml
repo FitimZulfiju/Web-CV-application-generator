@@ -2,8 +2,7 @@ networks:
   webcvapp_default:
     name: ${COMPOSE_NETWORK:-deploy_webcvapp_default}
     external: ${COMPOSE_NETWORK_EXTERNAL:-false}
-volumes:
-  webcv_sql_data: null
+
 services:
   app:
     image: ${DOCKER_REPOSITORY}:${IMAGE_TAG:-latest}
@@ -56,6 +55,7 @@ services:
       - Cloudflare__ZoneId=${CF_ZONE_ID}
       - ConnectionStrings__DefaultConnection=Server=${DB_SERVER};Database=${DB_NAME};User
         Id=${DB_USER};Password=${DB_PASSWORD};TrustServerCertificate=True;
+      - ConnectionStrings__Ollama=http://webcv-ollama:11434/api/generate
     networks:
       - webcvapp_default
     labels:
@@ -86,6 +86,17 @@ services:
       \ /app/wwwroot/images || true &&\n\n  # Ensure backups directory has proper\
       \ permissions for SQL Server access\n  chmod 777 /app/Backups || true &&\n\n\
       \  echo 'Starting MF application...' &&\n  dotnet WebCV.Web.dll\"\n"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: webcv-ollama
+    restart: unless-stopped
+    ports:
+      - 11434:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - webcvapp_default
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -127,3 +138,7 @@ services:
       webcvapp_default:
         aliases:
           - ${DB_SERVER}
+
+volumes:
+  webcv_sql_data:
+  ollama_data:

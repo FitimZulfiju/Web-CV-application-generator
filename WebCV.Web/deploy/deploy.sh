@@ -306,6 +306,40 @@ initialize_static_images() {
     fi
 }
 
+init_ollama_models() {
+    log "INFO" "Initializing Ollama models..."
+    CONTAINER_NAME="webcv-ollama"
+
+    log "INFO" "Waiting for container $CONTAINER_NAME to be ready..."
+    for i in {1..30}; do
+        if docker ps | grep -q "$CONTAINER_NAME"; then
+            log "INFO" "Container $CONTAINER_NAME is running"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            log "WARN" "Container $CONTAINER_NAME not found after 30 seconds."
+            return
+        fi
+        sleep 1
+    done
+
+    # Wait for Ollama service to be responsive
+    log "INFO" "Waiting for Ollama API to be responsive..."
+    for i in {1..30}; do
+        if docker exec "$CONTAINER_NAME" curl -s http://localhost:11434/api/tags > /dev/null; then
+            break
+        fi
+        sleep 2
+    done
+
+    log "INFO" "Pulling required models (this may take a while)..."
+    docker exec "$CONTAINER_NAME" ollama pull mistral
+    docker exec "$CONTAINER_NAME" ollama pull llama3.1
+    docker exec "$CONTAINER_NAME" ollama pull phi3
+    docker exec "$CONTAINER_NAME" ollama pull gpt4all
+    log "INFO" "Ollama models initialized."
+}
+
 start_services() {
     log "INFO" "Cleaning up previous containers and networks..."
 
@@ -378,6 +412,7 @@ start_services() {
     # Fix backup permissions and initialize static images after containers are up
     fix_backup_permissions
     initialize_static_images
+    init_ollama_models
 
     log "INFO" "Deployment complete. Visit https://$DOMAIN"
     log "INFO" "Deployment complete. Visit https://$FULL_SUBDOMAIN"
