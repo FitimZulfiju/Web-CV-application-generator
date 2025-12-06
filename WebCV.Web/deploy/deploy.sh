@@ -434,7 +434,7 @@ start_services() {
     done
 
     log "INFO" "Pulling latest images..."
-    docker-compose pull
+    docker-compose pull || log "WARN" "Some images failed to pull, will continue with local build"
 
     log "INFO" "Starting containers..."
     docker-compose up -d --remove-orphans
